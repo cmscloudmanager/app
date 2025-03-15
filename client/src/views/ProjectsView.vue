@@ -48,7 +48,7 @@ const fetchData = async () => {
     const response = await fetch(import.meta.env.VITE_API_URL + '/projects')
     const data = await response.json()
     items.value = data.items
-    totalItems.value = data.totalCount
+    totalItems.value = data.total
   } catch (error) {
     console.error('Error fetching data:', error)
   } finally {

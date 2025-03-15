@@ -1,10 +1,22 @@
 <template>
-    <h1>Projects</h1>
+  <v-row justify="space-between" class="mb-2">
+    <v-col cols="auto">
+      <h2>Projects</h2>
+    </v-col>
 
-    <v-data-table-server
+    <!-- Add Button -->
+    <v-col cols="auto">
+      <v-btn color="primary" @click="onAddClick">
+        <v-icon left>mdi-plus</v-icon>
+        Add
+      </v-btn>
+    </v-col>
+  </v-row>
+
+  <v-data-table-server
     v-model:items-per-page="itemsPerPage"
     :headers="headers"
-    :items="serverItems"
+    :items="items"
     :items-length="totalItems"
     :loading="loading"
     :search="search"
@@ -14,57 +26,42 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
-  const desserts = [
-    {
-      name: 'My WordPress site',
-      type: 'WordPress',
-      url: 'javiercasares.com',
-      version: '6.2',
-      extra: 'PHP 5.6',
-    },
-  ]
-  const FakeAPI = {
-    async fetch ({ page, itemsPerPage, sortBy }) {
-      return new Promise(resolve => {
-        setTimeout(() => {
-          const start = (page - 1) * itemsPerPage
-          const end = start + itemsPerPage
-          const items = desserts.slice()
-          if (sortBy.length) {
-            const sortKey = sortBy[0].key
-            const sortOrder = sortBy[0].order
-            items.sort((a, b) => {
-              const aValue = a[sortKey]
-              const bValue = b[sortKey]
-              return sortOrder === 'desc' ? bValue - aValue : aValue - bValue
-            })
-          }
-          const paginated = items.slice(start, end === -1 ? undefined : end)
-          resolve({ items: paginated, total: items.length })
-        }, 500)
-      })
-    },
+const itemsPerPage = ref(10)
+const headers = ref([
+  { title: 'Name', key: 'name'},
+  { title: 'Type', key: 'type'},
+  { title: 'URL', key: 'url'},
+  { title: 'Version', key: 'version'},
+  { title: 'Extra', key: 'extra'},
+])
+const search = ref('')
+const items = ref([])
+const loading = ref(true)
+const totalItems = ref(0)
+
+// Function to fetch data from an API
+const fetchData = async () => {
+  loading.value = true
+  try {
+    const response = await fetch(import.meta.env.VITE_API_URL + '/projects')
+    const data = await response.json()
+    items.value = data.items
+    totalItems.value = data.totalCount
+  } catch (error) {
+    console.error('Error fetching data:', error)
+  } finally {
+    loading.value = false
   }
-  const itemsPerPage = ref(5)
-  const headers = ref([
-    { title: 'Name', key: 'name'},
-    { title: 'Type', key: 'type'},
-    { title: 'URL', key: 'url'},
-    { title: 'Version', key: 'version'},
-    { title: 'Extra', key: 'extra'},
-  ])
-  const search = ref('')
-  const serverItems = ref([])
-  const loading = ref(true)
-  const totalItems = ref(0)
-  function loadItems ({ page, itemsPerPage, sortBy }) {
-    loading.value = true
-    FakeAPI.fetch({ page, itemsPerPage, sortBy }).then(({ items, total }) => {
-      serverItems.value = items
-      totalItems.value = total
-      loading.value = false
-    })
-  }
+}
+
+// Fetch data when component mounts
+onMounted(() => {
+  fetchData()
+})
+
+function onAddClick() {
+
+}
 </script>

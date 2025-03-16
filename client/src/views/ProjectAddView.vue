@@ -17,7 +17,7 @@
         <v-select
             label="Provider"
             v-model="data.provider"
-            :items="['Hetzner']"
+            :items="providers"
         ></v-select>
       </v-card>
     </template>
@@ -64,11 +64,12 @@
 </template>
 
 <script setup lang="ts">
-import {ref, watch} from "vue";
+import {onMounted, ref, watch} from "vue";
 import api from "@/api.js";
 
 const step = ref(0)
 const data = ref({})
+const providers = ref([])
 const instances = ref([])
 const regions = ref([])
 
@@ -120,4 +121,12 @@ watch(step, async (newStep) => {
         });
   }
 });
+
+onMounted(async () => {
+  const response = await api.get('/providers');
+  providers.value = []
+  response.data['items'].forEach((item, index) => {
+    providers.value.push(item['name'])
+  })
+})
 </script>

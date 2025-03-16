@@ -7,8 +7,8 @@ def build_manifest(project, provider):
             'type': 'hetzner',
             'api_key': provider['apiKey'],
         },
-        'instance': 'cpx21',
-        'server_name': 'patrick-test',
+        'instance': project['instance'],
+        'server_name': project['name'].replace(' ', '-').lower(),
         'uuid': '2d917d6c-0c69-46c5-bd1d-',  # Example UUID (replace with actual)
         'image': 'debian',
         'lets_encrypt_email': 'void@fuckwit.dev',

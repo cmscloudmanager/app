@@ -4,33 +4,36 @@ def build_manifest(project, provider):
     # Define the data as a Python dictionary
     data = {
         'provider': {
-            'type': 'hetzner',
+            'type': provider['type'].lower(),
+            'api_key': provider['apiKey'],
+        },
+        'dns': {
+            'type': provider['type'].lower(),
             'api_key': provider['apiKey'],
         },
         'instance': project['instance'],
         'server_name': project['name'].replace(' ', '-').lower(),
-        'uuid': '2d917d6c-0c69-46c5-bd1d-',  # Example UUID (replace with actual)
+        'uuid': '2d917d6c-0c69-46c5-bd1d-',
         'image': 'debian',
         'lets_encrypt_email': 'void@fuckwit.dev',
         'components': [
             {
-                'name': 'wordpress-1',
-                'type': 'wordpress',  # Adjust as necessary for Docker
-                'config': '...'
+                'name': 'app',
+                'type': project['type'].lower(),
+                'config': {
+                    'hostname': project['url'],
+                }
             },
             {
-                'name': 'mariadb-1',
+                'name': 'helloworld',
+                'type': 'example',
+                'config': {
+                    'hostname': project['url'],
+                }
+            },
+            {
+                'name': 'mariadb',
                 'type': 'mariadb',
-                'config': '...'
-            },
-            {
-                'name': 'jellyfin',
-                'type': 'docker-compose',
-                'compose_file': '''
-    services:
-        bla:
-            image: jellyfin
-    '''
             }
         ]
     }

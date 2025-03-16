@@ -4,7 +4,6 @@
       <h2>Projects</h2>
     </v-col>
 
-    <!-- Add Button -->
     <v-col cols="auto">
       <v-btn color="primary" @click="onAddClick">
         <v-icon left>mdi-plus</v-icon>
@@ -14,54 +13,53 @@
   </v-row>
 
   <v-data-table-server
-    v-model:items-per-page="itemsPerPage"
-    :headers="headers"
-    :items="items"
-    :items-length="totalItems"
-    :loading="loading"
-    :search="search"
-    item-value="name"
-    @update:options="loadItems"
+      v-model:items-per-page="itemsPerPage"
+      :headers="headers"
+      :items="items"
+      :items-length="totalItems"
+      :loading="loading"
+      :search="search"
+      item-value="name"
+      @update:options="fetchData"
   ></v-data-table-server>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import {ref} from 'vue'
+import {useRouter} from "vue-router";
+import api from "@/api.js";
+
+const router = useRouter()
 
 const itemsPerPage = ref(10)
 const headers = ref([
-  { title: 'Name', key: 'name'},
-  { title: 'Type', key: 'type'},
-  { title: 'URL', key: 'url'},
-  { title: 'Version', key: 'version'},
-  { title: 'Extra', key: 'extra'},
+  {title: 'Name', key: 'name'},
+  {title: 'Type', key: 'type'},
+  {title: 'URL', key: 'url'},
+  {title: 'Version', key: 'version'},
+  {title: 'Extra', key: 'extra'},
 ])
 const search = ref('')
 const items = ref([])
 const loading = ref(true)
 const totalItems = ref(0)
 
-// Function to fetch data from an API
 const fetchData = async () => {
-  loading.value = true
+  loading.value = true;
+
   try {
-    const response = await fetch(import.meta.env.VITE_API_URL + '/projects')
-    const data = await response.json()
-    items.value = data.items
-    totalItems.value = data.total
+    const response = await api.get('/projects');
+    const data = response.data
+    items.value = data.items;
+    totalItems.value = data.total;
   } catch (error) {
-    console.error('Error fetching data:', error)
+    console.error('Error fetching data:', error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
-// Fetch data when component mounts
-onMounted(() => {
-  fetchData()
-})
-
 function onAddClick() {
-
+  router.push('/projects/add');
 }
 </script>

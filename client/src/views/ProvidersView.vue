@@ -1,7 +1,7 @@
 <template>
   <v-row justify="space-between" class="mb-2">
     <v-col cols="auto">
-      <h2>Users</h2>
+      <h2>Providers</h2>
     </v-col>
 
     <v-col cols="auto">
@@ -26,13 +26,15 @@
 
 <script setup>
 import {ref} from 'vue'
+import {useRouter} from "vue-router";
 import api from "@/api.js";
+
+const router = useRouter()
 
 const itemsPerPage = ref(10)
 const headers = ref([
-  {title: 'ID', key: 'id'},
   {title: 'Name', key: 'name'},
-  {title: 'E-Mail', key: 'email'},
+  {title: 'Type', key: 'type'},
 ])
 const search = ref('')
 const items = ref([])
@@ -43,10 +45,10 @@ const fetchData = async () => {
   loading.value = true;
 
   try {
-    const response = await api.get('/users');
+    const response = await api.get('/providers');
     const data = response.data
-    items.value = data.items
-    totalItems.value = data.total
+    items.value = data.items;
+    totalItems.value = data.total;
   } catch (error) {
     console.error('Error fetching data:', error);
   } finally {
@@ -55,7 +57,6 @@ const fetchData = async () => {
 }
 
 function onAddClick() {
-  alert("Not Implemented")
+  router.push('/providers/add');
 }
-
 </script>

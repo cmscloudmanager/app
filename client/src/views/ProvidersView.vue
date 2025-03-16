@@ -21,7 +21,14 @@
       :search="search"
       item-value="name"
       @update:options="fetchData"
-  ></v-data-table-server>
+  >
+    <template v-slot:item.actions="{ item }">
+      <v-btn variant="text" color="primary" @click="editItem(item)">
+        <v-icon start>mdi-pencil</v-icon>
+        Edit
+      </v-btn>
+    </template>
+  </v-data-table-server>
 </template>
 
 <script setup>
@@ -35,6 +42,7 @@ const itemsPerPage = ref(10)
 const headers = ref([
   {title: 'Name', key: 'name'},
   {title: 'Type', key: 'type'},
+  {title: 'Actions', key: 'actions'},
 ])
 const search = ref('')
 const items = ref([])
@@ -58,5 +66,9 @@ const fetchData = async () => {
 
 function onAddClick() {
   router.push('/providers/add');
+}
+
+function editItem(item) {
+  router.push(`/providers/${item.id}`);
 }
 </script>

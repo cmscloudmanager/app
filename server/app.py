@@ -4,7 +4,7 @@ import os
 import secrets
 
 from cryptography.fernet import Fernet
-from flask import Flask, jsonify, request, g
+from flask import Flask, jsonify, request, g, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, exceptions, verify_jwt_in_request, create_access_token
 from dotenv import load_dotenv
@@ -14,7 +14,7 @@ from encryption import decrypt_message
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='static/assets')
     app.config.from_object(__name__)
 
     JWTManager(app)
@@ -62,13 +62,14 @@ db_instance = Database(app.config['DATABASE_PATH'])
 @app.before_request
 def before_request():
     """Open the database connection before a request."""
-    g.db = db_instance.get_connection()
+    if not request.path.startswith('/static'):
+        g.db = db_instance.get_connection()
 
 
 @app.before_request
 def check_route_exceptions():
     # Allow access to the login route without requiring JWT
-    if request.endpoint == 'login':
+    if request.endpoint == 'index' or request.endpoint == 'login' or request.endpoint == 'static' or request.path.startswith('/static/'):
         return  # Skip JWT required check for the login route
 
     try:
@@ -89,7 +90,13 @@ def ping_pong():
     return jsonify('pong!')
 
 
-@app.route("/login", methods=["POST"])
+@app.route('/')
+@app.route('/<path:path>')
+def index(path=None):
+    return send_from_directory('static', 'index.html')
+
+
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
     user = db_instance.get_user_by_login(
@@ -104,7 +111,7 @@ def login():
     return jsonify({"message": "Login successful", "user_id": user['id'], 'access_token': access_token}), 200
 
 
-@app.route('/projects', methods=['GET'])
+@app.route('/api/projects', methods=['GET'])
 def get_projects():
     projects = db_instance.get_projects()
 
@@ -114,7 +121,7 @@ def get_projects():
     })
 
 
-@app.route('/providers', methods=['GET'])
+@app.route('/api/providers', methods=['GET'])
 def get_providers():
     providers = db_instance.get_providers()
 
@@ -124,7 +131,7 @@ def get_providers():
     })
 
 
-@app.route('/providers/<int:provider_id>', methods=['GET'])
+@app.route('/api/providers/<int:provider_id>', methods=['GET'])
 def get_provider(provider_id):
     provider = db_instance.get_provider(provider_id)
     provider['apiKey'] = decrypt_message(provider['apiKey'])
@@ -133,7 +140,7 @@ def get_provider(provider_id):
     return jsonify(provider)
 
 
-@app.route('/providers/<int:provider_id>', methods=['POST'])
+@app.route('/api/providers/<int:provider_id>', methods=['POST'])
 def update_provider(provider_id):
     data = request.get_json()
 
@@ -151,7 +158,7 @@ def update_provider(provider_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/users', methods=['GET'])
+@app.route('/api/users', methods=['GET'])
 def get_users():
     users = db_instance.get_users()
 
@@ -161,7 +168,7 @@ def get_users():
     })
 
 
-@app.route('/create-project', methods=['POST'])
+@app.route('/api/create-project', methods=['POST'])
 def create_project():
     data = request.get_json()
 
@@ -181,7 +188,7 @@ def create_project():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/add-provider', methods=['POST'])
+@app.route('/api/add-provider', methods=['POST'])
 def add_provider():
     data = request.get_json()
 
@@ -198,7 +205,7 @@ def add_provider():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/instances', methods=['POST'])
+@app.route('/api/instances', methods=['POST'])
 def get_instance_types():
     return jsonify({
         'regions': [

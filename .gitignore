@@ -32,3 +32,4 @@ __pycache__
 .vite
 server/app.db
 server/.env
+/server/static

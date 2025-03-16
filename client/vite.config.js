@@ -7,6 +7,10 @@ import vuetify from 'vite-plugin-vuetify'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    outDir: '../server/static', // Output folder in your Flask server directory
+    assetsDir: 'assets',
+  },
   plugins: [
     vue(),
     //vueDevTools(),

@@ -1,3 +1,4 @@
+import datetime
 import os
 import secrets
 
@@ -12,7 +13,6 @@ from database import Database
 def create_app():
     app = Flask(__name__)
     app.config.from_object(__name__)
-    app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 
     JWTManager(app)
 
@@ -25,6 +25,7 @@ def create_app():
     env_defaults = {
         'DATABASE_PATH': 'app.db',
         'JWT_SECRET_KEY': lambda: secrets.token_hex(32),
+        'JWT_ACCESS_TOKEN_EXPIRES': '120',
         'SECRET_KEY': lambda: secrets.token_urlsafe(64),
     }
 
@@ -42,6 +43,7 @@ def create_app():
             write_to_env_file(key, value)  # Store it in .env
 
     # Set the environment variables into Flask config
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(minutes=float(os.getenv('JWT_ACCESS_TOKEN_EXPIRES')))
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
     app.config['DATABASE_PATH'] = os.getenv('DATABASE_PATH')
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')

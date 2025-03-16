@@ -99,7 +99,6 @@ watch(step, async (newStep) => {
           instances.value = []
           regions.value = response.data['regions']
 
-          console.log(response.data)
           response.data['plans'].forEach((item, index) => {
             instances.value.push({title: item['name'], group: true})
 

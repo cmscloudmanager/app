@@ -1,6 +1,8 @@
+import copy
 import sqlite3
 
 from password import hash_password, verify_password
+from encryption import encrypt_message
 
 
 class Database:
@@ -23,16 +25,33 @@ class Database:
             self.connection = None
 
     def get_columns(self, table):
-        # Return cached columns if available
-        if table in self.column_cache:
-            return self.column_cache[table]
+        if table not in self.column_cache:
+            cursor = self.connection.cursor()
+            cursor.execute(f"PRAGMA table_info({table})")
+            columns = [col[1] for col in cursor.fetchall()]
+            self.column_cache[table] = columns
 
-        # Otherwise, fetch and cache columns
+        return copy.deepcopy(self.column_cache[table])
+
+    def fetch_one(self, table, where, arguments=None, exclude_columns=None):
+        columns = self.get_columns(table)
+
+        # Exclude specified column if needed
+        if exclude_columns:
+            if isinstance(exclude_columns, str):
+                exclude_columns = [exclude_columns]
+
+            for exclude_column in exclude_columns:
+                if exclude_column in columns:
+                    columns.remove(exclude_column)
+
+        columns_str = ", ".join(columns)
         cursor = self.connection.cursor()
-        cursor.execute(f"PRAGMA table_info({table})")
-        columns = [col[1] for col in cursor.fetchall()]
-        self.column_cache[table] = columns
-        return columns
+
+        cursor.execute(f"SELECT {columns_str} FROM {table} WHERE {where}", arguments)
+        row = cursor.fetchone()
+
+        return dict(zip(columns, row))
 
     def fetch_all(self, table, exclude_columns=None):
         columns = self.get_columns(table)
@@ -68,6 +87,9 @@ class Database:
     def get_providers(self):
         return self.fetch_all('providers', ['apiKey','apiSecret'])
 
+    def get_provider(self, provider_id):
+        return self.fetch_one('providers', 'id = ?', (provider_id,))
+
     def get_users(self):
         return self.fetch_all('users', 'password')
 
@@ -89,7 +111,19 @@ class Database:
         cursor.execute('''
         INSERT INTO providers (name, type, apiKey, apiSecret) 
         VALUES (?, ?, ?, ?)
-        ''', (name, type, api_key, api_secret))
+        ''', (name, type, encrypt_message(api_key), encrypt_message(api_secret)))
+
+        self.connection.commit()
+
+    def update_provider(self, provider_id, name, type, api_key, api_secret):
+        cursor = self.connection.cursor()
+
+        # Insert a new record into the 'users' table
+        cursor.execute('''
+        UPDATE providers
+        SET name = ?, type = ?, apiKey = ?, apiSecret = ?
+        WHERE id = ?
+        ''', (name, type, encrypt_message(api_key), encrypt_message(api_secret), provider_id))
 
         self.connection.commit()
 

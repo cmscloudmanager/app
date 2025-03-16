@@ -1,13 +1,16 @@
+import base64
 import datetime
 import os
 import secrets
 
+from cryptography.fernet import Fernet
 from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, exceptions, verify_jwt_in_request, create_access_token
 from dotenv import load_dotenv
 
 from database import Database
+from encryption import decrypt_message
 
 
 def create_app():
@@ -26,7 +29,7 @@ def create_app():
         'DATABASE_PATH': 'app.db',
         'JWT_SECRET_KEY': lambda: secrets.token_hex(32),
         'JWT_ACCESS_TOKEN_EXPIRES': '120',
-        'SECRET_KEY': lambda: secrets.token_urlsafe(64),
+        'SECRET_KEY': lambda: base64.urlsafe_b64encode(Fernet.generate_key()).decode('utf-8'),
     }
 
     # Function to write the key-value pair to the .env file
@@ -46,8 +49,7 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(minutes=float(os.getenv('JWT_ACCESS_TOKEN_EXPIRES')))
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
     app.config['DATABASE_PATH'] = os.getenv('DATABASE_PATH')
-    app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
-    app.config['REDIS_URL'] = os.getenv('REDIS_URL')
+    app.config['SECRET_KEY'] = base64.urlsafe_b64decode(os.getenv('SECRET_KEY').encode('utf-8'))
 
     return app
 
@@ -120,6 +122,33 @@ def get_providers():
         'total': len(providers),
         'items': providers
     })
+
+
+@app.route('/providers/<int:provider_id>', methods=['GET'])
+def get_provider(provider_id):
+    provider = db_instance.get_provider(provider_id)
+    provider['apiKey'] = decrypt_message(provider['apiKey'])
+    provider['apiSecret'] = decrypt_message(provider['apiSecret'])
+
+    return jsonify(provider)
+
+
+@app.route('/providers/<int:provider_id>', methods=['POST'])
+def update_provider(provider_id):
+    data = request.get_json()
+
+    try:
+        db_instance.update_provider(
+            provider_id,
+            data.get('name'),
+            data.get('type'),
+            data.get('apiKey'),
+            data.get('apiSecret'),
+        )
+
+        return jsonify({"message": f"Provider updated successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/users', methods=['GET'])

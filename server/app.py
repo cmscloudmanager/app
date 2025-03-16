@@ -98,7 +98,7 @@ def ping_pong():
 
 @app.route('/')
 @app.route('/<path:path>')
-def index(_):
+def index(_=None):
     return send_from_directory('static', 'index.html')
 
 

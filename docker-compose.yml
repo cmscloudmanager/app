@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./app.db:/app/app.db
+    ports:
+      - "5001:5000"
+    environment:
+      - DATABASE_PATH=app.db
+      - JWT_SECRET_KEY=ad9268583ee007e80d31ee2e02d92df86ed5cde9384b18244a341ba52dcebf87
+      - JWT_ACCESS_TOKEN_EXPIRES=120
+      - SECRET_KEY=dVNNMHFJSnJSRW9VeVlKVDBWWS1XcWFNMXFYU2h0NWROQnk0SDJaWWdKZz0=
+

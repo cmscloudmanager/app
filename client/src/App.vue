@@ -43,7 +43,7 @@
       </v-main>
     </v-app>
 
-    <v-app v-if="!isAuthenticated">
+    <v-app :theme="theme" v-if="!isAuthenticated">
       <RouterView />
     </v-app>
   </v-responsive>

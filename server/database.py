@@ -86,8 +86,11 @@ class Database:
     def get_projects(self):
         return self.fetch_all('projects')
 
+    def get_project(self, project_id):
+        return self.fetch_one('projects', 'id = ?', (project_id,))
+
     def get_providers(self):
-        return self.fetch_all('providers', ['apiKey','apiSecret'])
+        return self.fetch_all('providers', ['apiKey', 'apiSecret'])
 
     def get_provider(self, provider_id):
         return self.fetch_one('providers', 'id = ?', (provider_id,))
@@ -95,14 +98,26 @@ class Database:
     def get_users(self):
         return self.fetch_all('users', 'password')
 
-    def add_project(self, name, type, provider, instance, url, version, extra):
+    def add_project(self, name, type, provider_id, instance, url, version, extra):
         cursor = self.connection.cursor()
 
         # Insert a new record into the 'users' table
         cursor.execute('''
-        INSERT INTO projects (name, type, provider, instance, url, version, extra) 
+        INSERT INTO projects (name, type, provider_id, instance, url, version, extra) 
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (name, type, provider, instance, url, version, extra))
+        ''', (name, type, provider_id, instance, url, version, extra))
+
+        self.connection.commit()
+
+    def update_project(self, project_id, name):
+        cursor = self.connection.cursor()
+
+        # Insert a new record into the 'users' table
+        cursor.execute('''
+        UPDATE projects
+        SET name = ?
+        WHERE id = ?
+        ''', (name, project_id))
 
         self.connection.commit()
 
@@ -149,13 +164,15 @@ class Database:
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS projects (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider_id INTEGER,
                 name TEXT NOT NULL,
                 type TEXT NOT NULL,
-                provider TEXT NOT NULL,
                 instance TEXT NOT NULL,
                 url TEXT NOT NULL,
                 version TEXT NOT NULL,
-                extra TEXT NOT NULL
+                extra TEXT NOT NULL,
+                FOREIGN KEY (provider_id) REFERENCES providers(id)
+                ON DELETE RESTRICT
             )
             ''')
 

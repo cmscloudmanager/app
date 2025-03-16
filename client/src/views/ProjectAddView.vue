@@ -16,8 +16,10 @@
         ></v-select>
         <v-select
             label="Provider"
-            v-model="data.provider"
+            v-model="data.provider_id"
             :items="providers"
+            item-value="id"
+            item-title="name"
         ></v-select>
       </v-card>
     </template>
@@ -66,6 +68,9 @@
 <script setup lang="ts">
 import {onMounted, ref, watch} from "vue";
 import api from "@/api.js";
+import {useRouter} from "vue-router";
+
+const router = useRouter()
 
 const step = ref(0)
 const data = ref({})
@@ -85,7 +90,7 @@ const showSnackbar = (message, color) => {
 
 function validate() {
   if (step.value == 2) {
-    return data.value.name && data.value.url && data.value.type && data.value.provider
+    return data.value.name && data.value.url && data.value.type && data.value.provider_id
   }
   if (step.value == 3) {
     return data.value.instance && data.value.region
@@ -113,7 +118,10 @@ watch(step, async (newStep) => {
   } else if (newStep === 3) {
     api.post('/create-project', data.value)
         .then((_) => {
-          showSnackbar('✅Project successfully created', 'success')
+          setTimeout(() => {
+            //showSnackbar('✅Project successfully created', 'success');
+            router.push('/projects');
+          }, 2000); // 2000ms = 2 seconds
         })
         .catch((_) => {
           showSnackbar('Failed creating the project', 'error');
@@ -123,9 +131,6 @@ watch(step, async (newStep) => {
 
 onMounted(async () => {
   const response = await api.get('/providers');
-  providers.value = []
-  response.data['items'].forEach((item, index) => {
-    providers.value.push(item['name'])
-  })
+  providers.value = response.data['items']
 })
 </script>

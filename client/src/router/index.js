@@ -37,7 +37,7 @@ const router = createRouter({
     },
     {
       path: '/providers/:id',
-      name: 'project',
+      name: 'provider',
       component: () => import('@/views/ProviderView.vue'),
     },
     {

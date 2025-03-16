@@ -13,9 +13,11 @@ class Database:
 
     def get_connection(self):
         """Get the database connection."""
-        if self.connection is None:
-            self.connection = sqlite3.connect(self.db_path)
-            self.connection.row_factory = sqlite3.Row
+        if self.connection:
+            self.close_connection()
+
+        self.connection = sqlite3.connect(self.db_path)
+        self.connection.row_factory = sqlite3.Row
         return self.connection
 
     def close_connection(self):
@@ -173,4 +175,5 @@ class Database:
             ''', ('admin', 'admin@admin.admin', hash_password('password')))
 
             self.connection.commit()
-            self.close_connection()
+
+        self.close_connection()

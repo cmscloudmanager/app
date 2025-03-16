@@ -1,16 +1,83 @@
-import sqlite3
+import os
+import secrets
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager, exceptions, verify_jwt_in_request, create_access_token
+from dotenv import load_dotenv
 
-from database import create_db
+from database import Database
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(__name__)
+    app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+
+    JWTManager(app)
+
+    # enable CORS
+    CORS(app, resources={r'/*': {'origins': '*'}})
+
+    # Load environment variables from the .env file (if it exists)
+    load_dotenv()
+
+    env_defaults = {
+        'DATABASE_PATH': 'app.db',
+        'JWT_SECRET_KEY': lambda: secrets.token_hex(32),
+        'SECRET_KEY': lambda: secrets.token_urlsafe(64),
+    }
+
+    # Function to write the key-value pair to the .env file
+    def write_to_env_file(key, value):
+        with open('.env', 'a') as f:
+            f.write(f"{key}={value}\n")
+            print(f"Written {key} to .env file.")
+
+    # Ensure all required environment variables are set
+    for key, default in env_defaults.items():
+        if not os.getenv(key):  # If the environment variable is not set
+            value = default() if callable(default) else default
+            os.environ[key] = value
+            write_to_env_file(key, value)  # Store it in .env
+
+    # Set the environment variables into Flask config
+    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+    app.config['DATABASE_PATH'] = os.getenv('DATABASE_PATH')
+    app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
+    app.config['REDIS_URL'] = os.getenv('REDIS_URL')
+
+    return app
+
 
 # instantiate the app
-app = Flask(__name__)
-app.config.from_object(__name__)
+app = create_app()
+db_instance = Database(app.config['DATABASE_PATH'])
 
-# enable CORS
-CORS(app, resources={r'/*': {'origins': '*'}})
+
+@app.before_request
+def before_request():
+    """Open the database connection before a request."""
+    g.db = db_instance.get_connection()
+
+
+@app.before_request
+def check_route_exceptions():
+    # Allow access to the login route without requiring JWT
+    if request.endpoint == 'login':
+        return  # Skip JWT required check for the login route
+
+    try:
+        verify_jwt_in_request()
+    except exceptions.NoAuthorizationError:
+        # Skip the jwt_required check for other routes, but raise the exception when needed
+        return jsonify({"msg": "Missing authorization token"}), 401
+
+
+@app.teardown_appcontext
+def teardown(_):
+    """Close the database connection after a request."""
+    db_instance.close_connection()
 
 
 @app.route('/ping', methods=['GET'])
@@ -18,24 +85,313 @@ def ping_pong():
     return jsonify('pong!')
 
 
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    user = db_instance.get_user_by_login(
+        data.get('email'),
+        data.get('password')
+    )
+
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    access_token = create_access_token(identity=user['email'], additional_claims={"user_id": user["id"]})
+    return jsonify({"message": "Login successful", "user_id": user['id'], 'access_token': access_token}), 200
+
+
 @app.route('/projects', methods=['GET'])
 def get_projects():
+    projects = db_instance.get_projects()
+
     return jsonify({
-        'total': 1,
-        'items': [
+        'total': len(projects),
+        'items': projects
+    })
+
+
+@app.route('/providers', methods=['GET'])
+def get_providers():
+    providers = db_instance.get_providers()
+
+    return jsonify({
+        'total': len(providers),
+        'items': providers
+    })
+
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    users = db_instance.get_users()
+
+    return jsonify({
+        'total': len(users),
+        'items': users
+    })
+
+
+@app.route('/create-project', methods=['POST'])
+def create_project():
+    data = request.get_json()
+
+    try:
+        db_instance.add_project(
+            data.get('name'),
+            data.get('type'),
+            data.get('provider'),
+            data.get('instance'),
+            data.get('url'),
+            data.get('version', ''),
+            data.get('extra', '')
+        )
+
+        return jsonify({"message": f"Project added successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/add-provider', methods=['POST'])
+def add_provider():
+    data = request.get_json()
+
+    try:
+        db_instance.add_provider(
+            data.get('name'),
+            data.get('type'),
+            data.get('api_key'),
+            data.get('api_secret'),
+        )
+
+        return jsonify({"message": f"Provider added successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/instances', methods=['POST'])
+def get_instance_types():
+    return jsonify({
+        'regions': [
+            'HEL1',
+            'FSN1',
+            'NBG1',
+        ],
+        'plans': [
             {
-                'name': 'My WordPress site',
-                'type': 'WordPress',
-                'url': 'javiercasares.com',
-                'version': '6.2',
-                'extra': 'PHP 5.6',
+                'name': 'Shared vCPU Intel',
+                'options': [
+                    {
+                        'name': 'CX22',
+                        'VCPU': 2,
+                        'RAM': 4,
+                        'disk': 40,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0074,
+                        'price_month': 4.59,
+                    },
+                    {
+                        'name': 'CX32',
+                        'VCPU': 4,
+                        'RAM': 8,
+                        'disk': 80,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0127,
+                        'price_month': 7.59,
+                    },
+                    {
+                        'name': 'CX42',
+                        'VCPU': 8,
+                        'RAM': 16,
+                        'disk': 160,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0304,
+                        'price_month': 18.59,
+                    },
+                    {
+                        'name': 'CX52',
+                        'VCPU': 16,
+                        'RAM': 32,
+                        'disk': 320,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0611,
+                        'price_month': 36.09,
+                    }
+                ]
             },
+            {
+                'name': 'Shared vCPU AMD',
+                'options': [
+                    {
+                        'name': 'CPX11',
+                        'VCPU': 2,
+                        'RAM': 2,
+                        'disk': 40,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0082,
+                        'price_month': 5.09,
+                    },
+                    {
+                        'name': 'CPX21',
+                        'VCPU': 3,
+                        'RAM': 4,
+                        'disk': 80,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0138,
+                        'price_month': 8.59,
+                    },
+                    {
+                        'name': 'CPX31',
+                        'VCPU': 4,
+                        'RAM': 8,
+                        'disk': 160,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.025,
+                        'price_month': 15.59,
+                    },
+                    {
+                        'name': 'CPX41',
+                        'VCPU': 8,
+                        'RAM': 16,
+                        'disk': 240,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0464,
+                        'price_month': 28.09,
+                    },
+                    {
+                        'name': 'CPX51',
+                        'VCPU': 16,
+                        'RAM': 32,
+                        'disk': 360,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0979,
+                        'price_month': 61.09,
+                    }
+                ]
+            },
+            {
+                'name': 'Shared vCPU Ampere',
+                'options': [
+                    {
+                        'name': 'CAX11',
+                        'VCPU': 2,
+                        'RAM': 4,
+                        'disk': 40,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0074,
+                        'price_month': 4.59,
+                    },
+                    {
+                        'name': 'CAX21',
+                        'VCPU': 4,
+                        'RAM': 8,
+                        'disk': 80,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0122,
+                        'price_month': 7.59,
+                    },
+                    {
+                        'name': 'CAX31',
+                        'VCPU': 8,
+                        'RAM': 16,
+                        'disk': 160,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0226,
+                        'price_month': 14.09,
+                    },
+                    {
+                        'name': 'CAX41',
+                        'VCPU': 16,
+                        'RAM': 32,
+                        'disk': 320,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0443,
+                        'price_month': 27.59,
+                    }
+                ]
+            },
+            {
+                'name': 'Dedicated vCPU',
+                'options': [
+                    {
+                        'name': 'CCX13',
+                        'VCPU': 2,
+                        'RAM': 8,
+                        'disk': 80,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0226,
+                        'price_month': 14.09,
+                    },
+                    {
+                        'name': 'CCX23',
+                        'VCPU': 4,
+                        'RAM': 16,
+                        'disk': 160,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 20,
+                        'price_hour': 0.0435,
+                        'price_month': 27.09,
+                    },
+                    {
+                        'name': 'CCX33',
+                        'VCPU': 8,
+                        'RAM': 32,
+                        'disk': 240,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 30,
+                        'price_hour': 0.0867,
+                        'price_month': 54.09,
+                    },
+                    {
+                        'name': 'CCX43',
+                        'VCPU': 16,
+                        'RAM': 64,
+                        'disk': 360,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 40,
+                        'price_hour': 0.1725,
+                        'price_month': 107.59,
+                    },
+                    {
+                        'name': 'CCX53',
+                        'VCPU': 32,
+                        'RAM': 128,
+                        'disk': 600,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 50,
+                        'price_hour': 0.3431,
+                        'price_month': 214.09,
+                    },
+                    {
+                        'name': 'CCX63',
+                        'VCPU': 48,
+                        'RAM': 192,
+                        'disk': 960,
+                        'disk_type': 'NVME SSD',
+                        'traffic': 60,
+                        'price_hour': 0.5138,
+                        'price_month': 320.59,
+                    }
+                ]
+            }
         ]
     })
 
 
-if __name__ == '__main__':
-    conn = sqlite3.connect('/data/app.db')
-    create_db(conn)
+with app.app_context():
+    db_instance.create_db()
 
+if __name__ == '__main__':
     app.run()

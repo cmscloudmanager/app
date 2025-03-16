@@ -1,5 +1,5 @@
 <template>
-  <v-responsive class="border rounded">
+  <v-responsive>
     <v-app :theme="theme" v-if="isAuthenticated">
       <v-app-bar>
         <template v-slot:prepend>

@@ -4,9 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./app.db:/app/app.db
+      - ./data:/data/
     ports:
       - "5001:5000"
     environment:
-      - DATABASE_PATH=app.db
+      - DATABASE_PATH=/data/app.db
 

@@ -33,3 +33,4 @@ __pycache__
 server/app.db
 server/.env
 /server/static
+/data

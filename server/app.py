@@ -59,17 +59,21 @@ app = create_app()
 db_instance = Database(app.config['DATABASE_PATH'])
 
 
+def is_static_path():
+    return request.endpoint == 'index' or request.endpoint == 'static'
+
+
 @app.before_request
 def before_request():
     """Open the database connection before a request."""
-    if not request.path.startswith('/static'):
+    if not is_static_path():
         g.db = db_instance.get_connection()
 
 
 @app.before_request
 def check_route_exceptions():
     # Allow access to the login route without requiring JWT
-    if request.endpoint == 'index' or request.endpoint == 'login' or request.endpoint == 'static' or request.path.startswith('/static/'):
+    if is_static_path() or request.endpoint == 'login':
         return  # Skip JWT required check for the login route
 
     try:
@@ -82,7 +86,8 @@ def check_route_exceptions():
 @app.teardown_appcontext
 def teardown(_):
     """Close the database connection after a request."""
-    db_instance.close_connection()
+    if hasattr(g, 'db'):
+        db_instance.close_connection()
 
 
 @app.route('/ping', methods=['GET'])

@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from database import Database
 from encryption import decrypt_message
+from manifest import build_manifest
 
 
 def create_app():
@@ -73,7 +74,7 @@ def before_request():
 @app.before_request
 def check_route_exceptions():
     # Allow access to the login route without requiring JWT
-    if is_static_path() or request.endpoint == 'login':
+    if is_static_path() or request.endpoint == 'ping' or request.endpoint == 'login':
         return  # Skip JWT required check for the login route
 
     try:
@@ -97,8 +98,13 @@ def ping_pong():
 
 @app.route('/')
 @app.route('/<path:path>')
-def index(path=None):
+def index(_):
     return send_from_directory('static', 'index.html')
+
+
+@app.route('/api/<path:path>')
+def api_404(_):
+    return jsonify({"error": "Route not found"}), 404
 
 
 @app.route("/api/login", methods=["POST"])
@@ -124,6 +130,35 @@ def get_projects():
         'total': len(projects),
         'items': projects
     })
+
+
+@app.route('/api/projects/<int:project_id>', methods=['GET'])
+def get_project(project_id):
+    project = db_instance.get_project(project_id)
+
+    provider = db_instance.get_provider(project['provider_id'])
+    provider['apiKey'] = decrypt_message(provider['apiKey'])
+    provider['apiSecret'] = decrypt_message(provider['apiSecret'])
+
+
+    project['manifest'] = build_manifest(project, provider)
+
+    return jsonify(project)
+
+
+@app.route('/api/projects/<int:project_id>', methods=['POST'])
+def update_project(project_id):
+    data = request.get_json()
+
+    try:
+        db_instance.update_project(
+            project_id,
+            data.get('name'),
+        )
+
+        return jsonify({"message": f"Project updated successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/providers', methods=['GET'])
@@ -181,7 +216,7 @@ def create_project():
         db_instance.add_project(
             data.get('name'),
             data.get('type'),
-            data.get('provider'),
+            data.get('provider_id'),
             data.get('instance'),
             data.get('url'),
             data.get('version', ''),

@@ -3,10 +3,6 @@
     <v-card class="elevation-12" max-width="400px" width="100%">
       <v-card-title class="headline">Login</v-card-title>
 
-      <v-card-subtitle>
-        Please enter your credentials
-      </v-card-subtitle>
-
       <v-form v-model="valid" @submit.prevent="login">
         <v-text-field
             v-model="email"
@@ -35,8 +31,8 @@
           Login
         </v-btn>
 
-        <v-alert v-if="loginError" type="error" dismissible>
-          Invalid email or password.
+        <v-alert v-if="loginError" type="error" dismissible class="mt-4">
+          Invalid e-mail or password.
         </v-alert>
       </v-form>
     </v-card>

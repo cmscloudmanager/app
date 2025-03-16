@@ -1,12 +1,12 @@
-version: '3.8'
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./app.db:/app/server/app.db
+      - ./app.db:/app/app.db
     ports:
       - "5001:5000"
+    environment:
+      - DATABASE_PATH=app.db
 

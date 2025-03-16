@@ -50,14 +50,15 @@
 </template>
 
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterView } from 'vue-router'
 import { ref } from 'vue'
 import {useAuthStore} from "@/stores/userStore.js";
+import {storeToRefs} from "pinia";
 
 const drawer = ref(true)
 const theme = ref('dark')
 const authStore = useAuthStore()
-const isAuthenticated = authStore.isAuthenticated
+const { isAuthenticated } = storeToRefs(authStore)
 
 function onClick () {
   theme.value = theme.value === 'light' ? 'dark' : 'light'
